@@ -4,7 +4,7 @@ import random
 
 
 pygame.init()
-size = 640, 480
+size = 400, 300
 color = 0, 50, 50
 clock = pygame.time.Clock()
 
@@ -13,6 +13,7 @@ screen = pygame.display.set_mode(size)
 
 class Player:
     def __init__(self, x, y):
+        self.is_dead = False
         self.x = min(max(10, x), size[0] - 60)
         self.y = min(max(10, y), size[0] - 60)
         self.direction = "RIGHT"
@@ -54,7 +55,9 @@ class Player:
         Bullet(x, y, self.direction)
 
     def dead(self):
-        print("Игра окончена")
+        if not self.is_dead:
+            self.is_dead = True
+            print("Игра окончена")
 
 
 class Bullet:
@@ -104,7 +107,7 @@ class Enemy:
         self.x = random.randrange(size[0] - 50)
         self.y = random.randrange(size[1] - 50)
 
-    def move(self):
+    def random_move(self):
         if self.count < 20:
             self.count += 1
             return None
@@ -122,6 +125,13 @@ class Enemy:
         elif step == 4:
             if self.y > 0:
                 self.y -= 10
+
+    def default_move(self):
+        if 
+
+    def move(self, type="random"):
+        if type == "random":
+            self.random_move()
 
     def draw(self):
         pygame.draw.rect(screen, (255, 0, 0),
@@ -158,6 +168,8 @@ while True:
         enemy.move()
         enemy.draw()
         enemy.check_collision(player)
+    if not Enemy.enemies:
+        enemy = Enemy()
     player.draw()
 
     pygame.display.update()
