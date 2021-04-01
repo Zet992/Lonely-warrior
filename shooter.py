@@ -45,13 +45,13 @@ class Player:
     def __shot(self):
         x, y = 0, 0
         if self.direction == "RIGHT":
-            x, y = self.x + 50, self.y + 50
+            x, y = self.x + 49, self.y + 49
         elif self.direction == "LEFT":
-            x, y = self.x, self.y
+            x, y = self.x + 1, self.y + 1
         elif self.direction == "UP":
-            x, y = self.x + 50, self.y
+            x, y = self.x + 49, self.y + 1
         elif self.direction == "DOWN":
-            x, y = self.x, self.y + 50
+            x, y = self.x + 1, self.y + 49
         Bullet(x, y, self.direction)
 
     def dead(self):
@@ -107,7 +107,7 @@ class Enemy:
         self.x = random.randrange(size[0] - 50)
         self.y = random.randrange(size[1] - 50)
 
-    def random_move(self):
+    def move(self):
         if self.count < 20:
             self.count += 1
             return None
@@ -125,13 +125,6 @@ class Enemy:
         elif step == 4:
             if self.y > 0:
                 self.y -= 10
-
-    def default_move(self):
-        if 
-
-    def move(self, type="random"):
-        if type == "random":
-            self.random_move()
 
     def draw(self):
         pygame.draw.rect(screen, (255, 0, 0),
