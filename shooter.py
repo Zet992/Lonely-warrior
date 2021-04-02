@@ -1,11 +1,12 @@
 import pygame
 import sys
-import random
+from random import choice, randrange
 
 
 pygame.init()
 size = 400, 300
 color = 0, 50, 50
+pygame.display.set_caption("Alone Warrior")
 clock = pygame.time.Clock()
 
 screen = pygame.display.set_mode(size)
@@ -45,19 +46,18 @@ class Player:
     def __shot(self):
         x, y = 0, 0
         if self.direction == "RIGHT":
-            x, y = self.x + 49, self.y + 49
+            x, y = self.x + 49, self.y + 40
         elif self.direction == "LEFT":
-            x, y = self.x + 1, self.y + 1
+            x, y = self.x + 1, self.y + 10
         elif self.direction == "UP":
-            x, y = self.x + 49, self.y + 1
+            x, y = self.x + 40, self.y + 1
         elif self.direction == "DOWN":
-            x, y = self.x + 1, self.y + 49
+            x, y = self.x + 10, self.y + 49
         Bullet(x, y, self.direction)
 
     def dead(self):
         if not self.is_dead:
             self.is_dead = True
-            print("Игра окончена")
 
 
 class Bullet:
@@ -73,6 +73,7 @@ class Bullet:
         if self.x + 3 > enemy.x and self.x < enemy.x + 50:
             if self.y + 3 > enemy.y and self.y < enemy.y + 50:
                 self.kill(enemy)
+                return True
 
     def kill(self, enemy):
         self.remove()
@@ -103,28 +104,59 @@ class Enemy:
     count = 0
 
     def __init__(self):
+        self.moving = choice((self.movex, self.movey))
         self.enemies.append(self)
-        self.x = random.randrange(size[0] - 50)
-        self.y = random.randrange(size[1] - 50)
+        spawn_point = choice((1, 2))
+        if spawn_point == 1:
+            if player.x + 80 < size[0] - 50:
+                self.x = randrange(player.x + 80, size[0] - 50)
+            else:
+                self.x = randrange(0, player.x - 80)
+            if player.y + 80 < size[1] - 50:
+                self.y = randrange(player.y + 80, size[1] - 50)
+            else:
+                self.y = randrange(0, player.y - 80)
 
-    def move(self):
-        if self.count < 20:
+        elif spawn_point == 2:
+            if player.x - 80 > 0:
+                self.x = randrange(0, player.x - 80)
+            else:
+                self.x = randrange(player.x + 80, size[0] - 50)
+            if player.y - 80 > 0:
+                self.y = randrange(0, player.y - 80)
+            else:
+                self.y = randrange(player.y + 80, size[1] - 50)
+
+    def movex(self):
+        if self.count < 10:
             self.count += 1
             return None
         self.count = 0
-        step = random.choice((1, 2, 3, 4))
-        if step == 1:
-            if self.x < size[0] - 50:
-                self.x += 10
-        elif step == 2:
-            if self.x > 0:
-                self.x -= 10
-        elif step == 3:
-            if self.y < size[1] - 50:
-                self.y += 10
-        elif step == 4:
-            if self.y > 0:
-                self.y -= 10
+        if player.x // 10 > self.x // 10:
+            self.x += 10
+        elif player.x // 10 < self.x // 10:
+            self.x -= 10
+        elif player.y > self.y:
+            self.y += 10
+        else:
+            self.y -= 10
+
+    def movey(self):
+        if self.count < 10:
+            self.count += 1
+            return None
+        self.count = 0
+        if player.y // 10 > self.y // 10:
+            self.y += 10
+        elif player.y // 10 < self.y // 10:
+            self.y -= 10
+        elif player.x > self.x:
+            self.x += 10
+        else:
+            self.x -= 10
+
+    def move(self):
+        self.moving()
 
     def draw(self):
         pygame.draw.rect(screen, (255, 0, 0),
@@ -141,29 +173,55 @@ class Enemy:
 
 
 player = Player(100, 100)
-enemy = Enemy()
+kills = 0
 
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             sys.exit()
         elif event.type == pygame.KEYDOWN:
-            player.get_command(event.key)
+            if not player.is_dead:
+                player.get_command(event.key)
+            else:
+                player.is_dead = False
+                for enemy in Enemy.enemies:
+                    enemy.dead()
 
     screen.fill(color)
     for bullet in Bullet.bullets[:]:
         bullet.move()
         bullet.draw()
         for enemy in Enemy.enemies[:]:
-            bullet.check_kill(enemy)
+            if bullet.check_kill(enemy):
+                kills += 1
+                break
 
     for enemy in Enemy.enemies:
         enemy.move()
         enemy.draw()
         enemy.check_collision(player)
+
     if not Enemy.enemies:
-        enemy = Enemy()
-    player.draw()
+        for i in range(randrange(1, 11)):
+            enemy = Enemy()
+
+    if player.is_dead:
+        kills = 0
+        font = pygame.font.SysFont("microsofttalie", 60)
+        text = "Игра окончена"
+        follow = font.render(text, 1,
+                             (255, 255, 0),
+                             color)
+        screen.blit(follow, (50, 100))
+    else:
+        player.draw()
+
+    font = pygame.font.SysFont("microsofttalie", 30)
+    text = f"Количество убийств: {kills}"
+    follow = font.render(text, 1,
+                         (255, 255, 0),
+                         color)
+    screen.blit(follow, (0, 0))
 
     pygame.display.update()
     clock.tick(30)
