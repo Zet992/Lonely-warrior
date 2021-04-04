@@ -177,7 +177,7 @@ class Enemy:
 pygame.init()
 size = 400, 300
 color = 0, 50, 50
-pygame.display.set_caption("Alone Warrior")
+pygame.display.set_caption("Lonely Warrior")
 clock = pygame.time.Clock()
 
 player = Player(100, 100)
