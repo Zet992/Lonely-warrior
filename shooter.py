@@ -10,29 +10,36 @@ class Player:
         self.y = min(max(10, y), size[0] - 60)
         self.bullets = 6
         self.direction = "RIGHT"
+        self.count = 10
 
-    def get_command(self, key):
-        if key == 1073741903 or key == 100:
+    def get_command(self, keys):
+        if self.count < 1:
+            self.count += 1
+            return None
+        self.count = 0
+        if keys[1073741903] or keys[100]:
             self.direction = "RIGHT"
             if self.x < size[0] - 50:
                 self.x += 10
-        elif key == 1073741904 or key == 97:
+        elif keys[1073741904] or keys[97]:
             self.direction = "LEFT"
             if self.x > 0:
                 self.x -= 10
-        elif key == 1073741905 or key == 115:
+
+        if keys[1073741905] or keys[115]:
             self.direction = "DOWN"
             if self.y < size[1] - 50:
                 self.y += 10
-        elif key == 1073741906 or key == 119:
+        elif keys[1073741906] or keys[119]:
             self.direction = "UP"
             if self.y > 20:
                 self.y -= 10
-        elif key == 114:
+
+        if keys[114]:
             if self.bullets < 6:
                 sound_of_reload.play()
                 self.bullets = 6
-        elif key == 32:
+        elif keys[32]:
             self.__shot()
 
     def draw(self):
@@ -43,6 +50,7 @@ class Player:
         if self.bullets == 0:
             sound_of_no_bullets.play()
             return None
+        
         x, y = 0, 0
         if self.direction == "RIGHT":
             x, y = self.x + 49, self.y + 40
@@ -103,9 +111,9 @@ class Bullet:
 
 class Enemy:
     enemies = []
-    count = 0
 
     def __init__(self):
+        self.count = 0
         self.moving = choice((self.movex, self.movey))
         self.enemies.append(self)
         spawn_point = choice((1, 2))
@@ -183,7 +191,7 @@ clock = pygame.time.Clock()
 player = Player(100, 100)
 kills = 0
 pygame.mixer.music.load("DOOM.mp3")
-pygame.mixer.music.set_volume(0.5)
+pygame.mixer.music.set_volume(0.1)
 pygame.mixer.music.play(-1)
 sound_of_shot = pygame.mixer.Sound("dspistol.wav")
 sound_of_kill = pygame.mixer.Sound("dspodth2.wav")
@@ -198,12 +206,13 @@ while True:
         if event.type == pygame.QUIT:
             sys.exit()
         elif event.type == pygame.KEYDOWN:
-            if not player.is_dead:
-                player.get_command(event.key)
-            else:
+            if player.is_dead:
                 player.is_dead = False
+                player.bullets = 6
                 for enemy in Enemy.enemies[:]:
                     enemy.dead()
+
+    player.get_command(pygame.key.get_pressed())
 
     screen.fill(color)
     for bullet in Bullet.bullets[:]:
