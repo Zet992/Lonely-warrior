@@ -190,13 +190,13 @@ clock = pygame.time.Clock()
 
 player = Player(100, 100)
 kills = 0
-pygame.mixer.music.load("DOOM.mp3")
+pygame.mixer.music.load("sounds/DOOM.mp3")
 pygame.mixer.music.set_volume(0.1)
 pygame.mixer.music.play(-1)
-sound_of_shot = pygame.mixer.Sound("dspistol.wav")
-sound_of_kill = pygame.mixer.Sound("dspodth2.wav")
-sound_of_reload = pygame.mixer.Sound("dsdbload.wav")
-sound_of_no_bullets = pygame.mixer.Sound("no_bullets.wav")
+sound_of_shot = pygame.mixer.Sound("sounds/dspistol.wav")
+sound_of_kill = pygame.mixer.Sound("sounds/dspodth2.wav")
+sound_of_reload = pygame.mixer.Sound("sounds/dsdbload.wav")
+sound_of_no_bullets = pygame.mixer.Sound("sounds/no_bullets.wav")
 
 screen = pygame.display.set_mode(size)
 
