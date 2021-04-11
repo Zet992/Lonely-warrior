@@ -43,7 +43,7 @@ class Player:
             self.__shot()
 
     def draw(self):
-        pygame.draw.rect(screen, (0, 0, 0),
+        pygame.draw.rect(screen, (255, 255, 0),
                          (self.x, self.y, 50, 50))
 
     def __shot(self):
@@ -67,6 +67,7 @@ class Player:
     def dead(self):
         if not self.is_dead:
             self.is_dead = True
+            sound_of_death.play()
 
 
 class Bullet:
@@ -82,7 +83,6 @@ class Bullet:
         if self.x + 3 > enemy.x and self.x < enemy.x + 50:
             if self.y + 3 > enemy.y and self.y < enemy.y + 50:
                 self.kill(enemy)
-                sound_of_kill.play()
                 return True
 
     def kill(self, enemy):
@@ -174,7 +174,7 @@ class Enemy:
 
     def dead(self):
         self.enemies.remove(self)
-        screen.fill((0, 90, 0))
+        choice(sounds_of_kill).play()
 
     def check_collision(self, player):
         if self.x + 50 > player.x and self.x < player.x + 50:
@@ -191,15 +191,22 @@ clock = pygame.time.Clock()
 player = Player(100, 100)
 kills = 0
 pygame.mixer.music.load("sounds/DOOM.mp3")
-pygame.mixer.music.set_volume(0.1)
+pygame.mixer.music.set_volume(0.5)
 pygame.mixer.music.play(-1)
+
 sound_of_shot = pygame.mixer.Sound("sounds/dspistol.wav")
-sound_of_kill = pygame.mixer.Sound("sounds/dspodth2.wav")
+sounds_of_kill = [pygame.mixer.Sound("sounds/dspodth2.wav"),
+                  pygame.mixer.Sound("sounds/dspodth1.wav"),
+                  pygame.mixer.Sound("sounds/dsbgdth2.wav")]
 sound_of_reload = pygame.mixer.Sound("sounds/dsdbload.wav")
 sound_of_no_bullets = pygame.mixer.Sound("sounds/no_bullets.wav")
+sound_of_death = pygame.mixer.Sound("sounds/death.wav")
+sound_of_streak = pygame.mixer.Sound("sounds/Monster kill.wav")
+
+background = pygame.image.load("images/background.jpg")
+background_rect = background.get_rect()
 
 screen = pygame.display.set_mode(size)
-
 
 while True:
     for event in pygame.event.get():
@@ -209,18 +216,21 @@ while True:
             if player.is_dead:
                 player.is_dead = False
                 player.bullets = 6
-                for enemy in Enemy.enemies[:]:
-                    enemy.dead()
+                Enemy.enemies = []
 
     player.get_command(pygame.key.get_pressed())
 
     screen.fill(color)
+    screen.blit(background, background_rect)
+
     for bullet in Bullet.bullets[:]:
         bullet.move()
         bullet.draw()
         for enemy in Enemy.enemies[:]:
             if bullet.check_kill(enemy):
                 kills += 1
+                if kills != 0 and kills % 25 == 0:
+                    sound_of_streak.play()
                 break
 
     for enemy in Enemy.enemies:
