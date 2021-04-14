@@ -4,6 +4,14 @@ from random import choice, randrange
 
 
 class Player:
+    image = pygame.image.load("images/player.gif")
+    image.set_colorkey((255, 255, 255))
+    images = {"RIGHT": image,
+              "LEFT": pygame.transform.rotate(image, 180),
+              "DOWN": pygame.transform.rotate(image, 270),
+              "UP": pygame.transform.rotate(image, 90)
+              }
+
     def __init__(self, x, y):
         self.is_dead = False
         self.x = min(max(10, x), size[0] - 60)
@@ -43,8 +51,8 @@ class Player:
             self.__shot()
 
     def draw(self):
-        pygame.draw.rect(screen, (255, 255, 0),
-                         (self.x, self.y, 50, 50))
+        screen.blit(self.images[self.direction],
+                    (self.x, self.y))
 
     def __shot(self):
         if self.bullets == 0:
