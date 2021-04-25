@@ -52,6 +52,15 @@ class Player:
             self.equipped_weapon = Pistol
         elif keys[pygame.K_2]:
             self.equipped_weapon = Shotgun
+        elif keys[pygame.K_3]:
+            self.equipped_weapon = RocketLauncher
+
+        if keys[pygame.K_m] and keys[pygame.K_p]:
+            Pistol.bullets = 999999
+        elif keys[pygame.K_m] and keys[pygame.K_s]:
+            Shotgun.bullets = 999999
+        elif keys[pygame.K_m] and keys[pygame.K_r]:
+            RocketLauncher.bullets = 999999
 
     def draw(self):
         screen.blit(self.images[self.direction],
@@ -66,25 +75,26 @@ class Player:
 class Bullet:
     bullets = []
 
-    def __init__(self, x, y, speed):
+    def __init__(self, x, y, size=(3, 3), speed=(10, 0)):
         self.x = x
         self.y = y
+        self.size = size
         self.speed = speed
         self.bullets.append(self)
 
     def check_kill(self, enemy):
-        if self.x + 3 > enemy.x and self.x < enemy.x + 50:
-            if self.y + 3 > enemy.y and self.y < enemy.y + 50:
-                self.kill(enemy)
+        if self.x + self.size[0] > enemy.x and self.x < enemy.x + 50:
+            if self.y + self.size[1] > enemy.y and self.y < enemy.y + 50:
                 return True
 
     def kill(self, enemy):
-        self.remove()
         enemy.dead()
+        self.remove()
 
     def draw(self):
         pygame.draw.rect(screen, (250, 0, 0),
-                         (self.x, self.y, 3, 3))
+                         (self.x, self.y,
+                          self.size[0], self.size[1]))
 
     def move(self):
         if self.speed[1] < 0:
@@ -98,11 +108,59 @@ class Bullet:
 
         if self.x < 0 or self.x > size[0] - 3:
             self.remove()
-        elif self.y < 0 or self.y > size[1] - 3:
+        elif self.y < 20 or self.y > size[1] - 3:
             self.remove()
 
     def remove(self):
         self.bullets.remove(self)
+
+
+class Rocket(Bullet):
+    sound_of_boom = pygame.mixer.Sound("sounds/boom.wav")
+
+    def __init__(self, x, y, size, color):
+        super().__init__(x, y, size, color)
+        self.tick = -1
+        self.flag = False
+
+    def remove(self):
+        if not self.flag:
+            self.boom()
+
+    def boom(self):
+        self.flag = True
+        self.sound_of_boom.play()
+        self.tick = 0
+
+    def draw(self):
+        if not self.flag:
+            super().draw()
+            return False
+        if self.tick == 5:
+            super().remove()
+            return None
+
+        if self.tick >= 0 and self.tick < 1:
+            self.x, self.y, self.size = self.x - 5, self.y - 5, (10, 10)
+        elif self.tick >= 1 and self.tick < 2:
+            self.x, self.y, self.size = self.x - 5, self.y - 5, (20, 20)
+        elif self.tick >= 2 and self.tick < 3:
+            self.x, self.y, self.size = self.x - 5, self.y - 5, (30, 30)
+        elif self.tick >= 3 and self.tick < 4:
+            self.x, self.y, self.size = self.x - 5, self.y - 5, (40, 40)
+        elif self.tick >= 4 and self.tick < 5:
+            self.x, self.y, self.size = self.x - 5, self.y - 5, (50, 50)
+
+        pygame.draw.rect(screen, (255, 0, 0),
+                         (self.x, self.y, self.size[0], self.size[1]))
+
+        self.tick += 1
+
+    def move(self):
+        if self.flag:
+            return False
+        else:
+            super().move()
 
 
 class Pistol:
@@ -122,21 +180,17 @@ class Pistol:
         self.time = now_time
 
         self.bullets -= 1
-        x, y = 0, 0
+        x, y = get_coords_for_bullet(player)
         speed = (0, 0)
         if player.direction == "RIGHT":
-            x, y = player.x + 49, player.y + 40
             speed = (10, 0)
         elif player.direction == "LEFT":
-            x, y = player.x + 1, player.y + 10
             speed = (-10, 0)
         elif player.direction == "UP":
-            x, y = player.x + 40, player.y + 1
             speed = (0, -10)
         elif player.direction == "DOWN":
-            x, y = player.x + 10, player.y + 49
             speed = (0, 10)
-        Bullet(x, y, speed)
+        Bullet(x, y, (3, 3), speed)
         self.sound_of_shot.play()
 
     def reload(self):
@@ -163,16 +217,8 @@ class Shotgun:
         self.time = now_time
 
         self.bullets -= 1
-        x, y = 0, 0
         speed = (0, 0)
-        if player.direction == "RIGHT":
-            x, y = player.x + 49, player.y + 40
-        elif player.direction == "LEFT":
-            x, y = player.x + 1, player.y + 10
-        elif player.direction == "UP":
-            x, y = player.x + 40, player.y + 1
-        elif player.direction == "DOWN":
-            x, y = player.x + 10, player.y + 49
+        x, y = get_coords_for_bullet(player)
         for i in range(7):
             if player.direction == "RIGHT":
                 speed = (randrange(8, 13), randrange(-3, 4))
@@ -182,7 +228,45 @@ class Shotgun:
                 speed = (randrange(-3, 4), randrange(-12, -7))
             elif player.direction == "DOWN":
                 speed = (randrange(-3, 4), randrange(8, 13))
-            Bullet(x, y, speed)
+            Bullet(x, y, (3, 3), speed)
+        self.sound_of_shot.play()
+
+    def reload(self):
+        pass
+
+
+class RocketLauncher:
+    sound_of_shot = pygame.mixer.Sound("sounds/rocket_shot.wav")
+    bullets = 1
+    time = pygame.time.get_ticks()
+
+    def shot(self, player):
+        if self.bullets == 0:
+            sound_of_no_bullets.play()
+            return None
+
+        now_time = pygame.time.get_ticks()
+        if now_time - self.time < 1000:
+            return False
+        self.time = now_time
+
+        self.bullets -= 1
+        x, y = get_coords_for_bullet(player)
+        speed = (0, 0)
+        size = (0, 0)
+        if player.direction == "RIGHT":
+            size = (15, 5)
+            speed = (10, 0)
+        elif player.direction == "LEFT":
+            size = (15, 5)
+            speed = (-10, 0)
+        elif player.direction == "UP":
+            size = (5, 15)
+            speed = (0, -10)
+        elif player.direction == "DOWN":
+            size = (5, 15)
+            speed = (0, 10)
+        Rocket(x, y, size, speed)
         self.sound_of_shot.play()
 
     def reload(self):
@@ -277,6 +361,18 @@ class Enemy:
                 player.dead()
 
 
+def get_coords_for_bullet(player):
+    if player.direction == "RIGHT":
+        x, y = player.x + 49, player.y + 40
+    elif player.direction == "LEFT":
+        x, y = player.x + 1, player.y + 10
+    elif player.direction == "UP":
+        x, y = player.x + 40, player.y + 1
+    else:
+        x, y = player.x + 10, player.y + 49
+    return x, y
+
+
 size = 400, 300
 color = 0, 50, 50
 pygame.display.set_caption("Lonely Warrior")
@@ -285,7 +381,7 @@ clock = pygame.time.Clock()
 player = Player(100, 100)
 kills = 0
 pygame.mixer.music.load("sounds/DOOM.mp3")
-pygame.mixer.music.set_volume(0.8)
+pygame.mixer.music.set_volume(1.0)
 pygame.mixer.music.play(-1)
 
 sounds_of_kill = [pygame.mixer.Sound("sounds/dspodth2.wav"),
@@ -308,7 +404,8 @@ while True:
             if player.is_dead:
                 player.is_dead = False
                 Pistol.bullets = 6
-                Shotgun.bullets = 1
+                Shotgun.bullets = 0
+                RocketLauncher.bullets = 0
                 Enemy.enemies = []
 
     player.get_command(pygame.key.get_pressed())
@@ -321,6 +418,7 @@ while True:
         bullet.draw()
         for enemy in Enemy.enemies[:]:
             if bullet.check_kill(enemy):
+                bullet.kill(enemy)
                 kills += 1
                 if kills != 0 and kills % 25 == 0:
                     sound_of_streak.play()
@@ -331,13 +429,15 @@ while True:
         enemy.draw()
         enemy.check_collision(player)
 
-    for i in range(player.equipped_weapon.bullets):
+    for i in range(min(6, player.equipped_weapon.bullets)):
         pygame.draw.rect(screen, (255, 0, 0),
                          (230 + i * 30, 5, 15, 15))
 
     if not Enemy.enemies:
         if Shotgun.bullets < 3:
             Shotgun.bullets += 1
+        if RocketLauncher.bullets < 1:
+            RocketLauncher.bullets = 1
         for i in range(randrange(1, 11)):
             enemy = Enemy()
 
