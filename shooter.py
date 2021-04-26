@@ -165,6 +165,7 @@ class Rocket(Bullet):
 
 class Pistol:
     bullets = 6
+    max_bullets = 6
     sound_of_shot = pygame.mixer.Sound("sounds/dspistol.wav")
     sound_of_reload = pygame.mixer.Sound("sounds/dsdbload.wav")
     time = pygame.time.get_ticks()
@@ -194,16 +195,17 @@ class Pistol:
         self.sound_of_shot.play()
 
     def reload(self):
-        if self.bullets > 6:
+        if self.bullets > self.max_bullets:
             return False
         self.sound_of_reload.play()
-        self.bullets = 6
+        self.bullets = self.max_bullets
 
 
 class Shotgun:
     sound_of_shot = pygame.mixer.Sound("sounds/shotgun_shot.wav")
     sound_of_reload = pygame.mixer.Sound("sounds/shotgun_reload.wav")
     bullets = 0
+    max_bullets = 3
     time = pygame.time.get_ticks()
 
     def shot(self, player):
@@ -238,6 +240,7 @@ class Shotgun:
 class RocketLauncher:
     sound_of_shot = pygame.mixer.Sound("sounds/rocket_shot.wav")
     bullets = 1
+    max_bullets = 1
     time = pygame.time.get_ticks()
 
     def shot(self, player):
@@ -352,6 +355,8 @@ class Enemy:
         screen.blit(self.images[self.direction], (self.x, self.y))
 
     def dead(self):
+        if randrange(6) == 0:
+            Loot(self.x, self.y, (30, 30))
         self.enemies.remove(self)
         choice(sounds_of_kill).play()
 
@@ -371,6 +376,41 @@ def get_coords_for_bullet(player):
     else:
         x, y = player.x + 10, player.y + 49
     return x, y
+
+
+class Loot():
+    loots = []
+
+    def __init__(self, x, y, size):
+        self.x = x
+        self.y = y
+        self.size = size
+        self.type_weapon = choice((Pistol, Shotgun,
+                             RocketLauncher))
+        if self.type_weapon == Shotgun:
+            self.color = (0, 255, 0)
+        elif self.type_weapon == RocketLauncher:
+            self.color = (125, 0, 125)
+        else:
+            self.color = (255, 255, 255)
+        self.loots.append(self)
+
+    def draw(self):
+        pygame.draw.rect(screen, self.color,
+                         (self.x, self.y,
+                          self.size[0], self.size[1]),
+                         3)
+
+    def check_collision(self, player):
+        if self.x + self.size[0] > player.x and self.x < player.x + 50:
+            if self.y + self.size[1] > player.y and self.y < player.y + 50:
+                self.loots.remove(self)
+                if self.type_weapon.bullets >= self.type_weapon.max_bullets:
+                    return None
+                if self.type_weapon.max_bullets == 1:
+                    return None
+                bullets = randrange(1, self.type_weapon.max_bullets)
+                self.type_weapon.bullets += bullets
 
 
 size = 400, 300
@@ -407,6 +447,7 @@ while True:
                 Shotgun.bullets = 0
                 RocketLauncher.bullets = 0
                 Enemy.enemies = []
+                Loot.loots = []
 
     player.get_command(pygame.key.get_pressed())
 
@@ -428,6 +469,10 @@ while True:
         enemy.move()
         enemy.draw()
         enemy.check_collision(player)
+
+    for loot in Loot.loots:
+        loot.draw()
+        loot.check_collision(player)
 
     for i in range(min(6, player.equipped_weapon.bullets)):
         pygame.draw.rect(screen, (255, 0, 0),
