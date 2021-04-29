@@ -22,6 +22,8 @@ class Player:
         self.count = 10
 
     def get_command(self, keys):
+        if self.is_dead:
+            return None
         if self.count < 1:
             self.count += 1
             return None
@@ -51,8 +53,10 @@ class Player:
         elif keys[pygame.K_1]:
             self.equipped_weapon = Pistol
         elif keys[pygame.K_2]:
-            self.equipped_weapon = Shotgun
+            self.equipped_weapon = Rifle
         elif keys[pygame.K_3]:
+            self.equipped_weapon = Shotgun
+        elif keys[pygame.K_4]:
             self.equipped_weapon = RocketLauncher
 
         if keys[pygame.K_m] and keys[pygame.K_p]:
@@ -61,6 +65,8 @@ class Player:
             Shotgun.bullets = 999999
         elif keys[pygame.K_m] and keys[pygame.K_r]:
             RocketLauncher.bullets = 999999
+        elif keys[pygame.K_m] and keys[pygame.K_f]:
+            Rifle.bullets = 99999
 
     def draw(self):
         screen.blit(self.images[self.direction],
@@ -166,6 +172,7 @@ class Rocket(Bullet):
 class Pistol:
     bullets = 6
     max_bullets = 6
+    icon = pygame.image.load("images/pistol.gif")
     sound_of_shot = pygame.mixer.Sound("sounds/dspistol.wav")
     sound_of_reload = pygame.mixer.Sound("sounds/dsdbload.wav")
     time = pygame.time.get_ticks()
@@ -200,10 +207,57 @@ class Pistol:
         self.sound_of_reload.play()
         self.bullets = self.max_bullets
 
+    def display_bullets(self):
+        for i in range(6):
+            pygame.draw.rect(screen, (155, 0, 0),
+                             (230 + i * 30, 5, 15, 15), 1)
+        for i in range(min(6, self.bullets)):
+            pygame.draw.rect(screen, (255, 0, 0),
+                             (230 + i * 30, 5, 15, 15))
+
+
+class Rifle:
+    sound_of_shot = pygame.mixer.Sound("sounds/dspistol.wav")
+    sound_of_reload = pygame.mixer.Sound("sounds/dsdbload.wav")
+    icon = pygame.image.load("images/pistol.gif")
+    max_bullets = 30
+    bullets = 5
+
+    def shot(self, player):
+        if self.bullets == 0:
+            sound_of_no_bullets.play()
+            return None
+
+        self.bullets -= 1
+        x, y = get_coords_for_bullet(player)
+        speed = (0, 0)
+        if player.direction == "RIGHT":
+            speed = (10, 0)
+        elif player.direction == "LEFT":
+            speed = (-10, 0)
+        elif player.direction == "UP":
+            speed = (0, -10)
+        elif player.direction == "DOWN":
+            speed = (0, 10)
+        Bullet(x, y, (3, 3), speed)
+        self.sound_of_shot.play()
+
+    def reload(self):
+        pass
+
+    def display_bullets(self):
+        for i in range(30):
+            pygame.draw.rect(screen, (155, 0, 0),
+                             (230 + i * 5, 5, 4, 20), 1)
+        for i in range(min(30, self.bullets)):
+            pygame.draw.rect(screen, (255, 0, 0),
+                             (230 + i * 5, 5, 4, 20))
+
 
 class Shotgun:
     sound_of_shot = pygame.mixer.Sound("sounds/shotgun_shot.wav")
     sound_of_reload = pygame.mixer.Sound("sounds/shotgun_reload.wav")
+    icon = pygame.image.load("images/shotgun.gif")
     bullets = 0
     max_bullets = 3
     time = pygame.time.get_ticks()
@@ -236,10 +290,20 @@ class Shotgun:
     def reload(self):
         pass
 
+    def display_bullets(self):
+        for i in range(3):
+            pygame.draw.rect(screen, (155, 0, 0),
+                             (230 + i * 30, 5, 20, 20), 1)
+        for i in range(min(3, self.bullets)):
+            pygame.draw.rect(screen, (255, 0, 0),
+                             (230 + i * 30, 5, 20, 20))
+
+
 
 class RocketLauncher:
     sound_of_shot = pygame.mixer.Sound("sounds/rocket_shot.wav")
-    bullets = 1
+    icon = pygame.image.load("images/RocketLauncher.gif")
+    bullets = 0
     max_bullets = 1
     time = pygame.time.get_ticks()
 
@@ -274,6 +338,14 @@ class RocketLauncher:
 
     def reload(self):
         pass
+
+    def display_bullets(self):
+        if self.bullets:
+            width = 0
+        else:
+            width = 1
+        pygame.draw.rect(screen, (255, 0, 0),
+                         (250, 12, 50, 15), width)
 
 
 class Enemy:
@@ -355,7 +427,7 @@ class Enemy:
         screen.blit(self.images[self.direction], (self.x, self.y))
 
     def dead(self):
-        if randrange(6) == 0:
+        if randrange(4) == 0:
             Loot(self.x, self.y, (30, 30))
         self.enemies.remove(self)
         choice(sounds_of_kill).play()
@@ -366,18 +438,6 @@ class Enemy:
                 player.dead()
 
 
-def get_coords_for_bullet(player):
-    if player.direction == "RIGHT":
-        x, y = player.x + 49, player.y + 40
-    elif player.direction == "LEFT":
-        x, y = player.x + 1, player.y + 10
-    elif player.direction == "UP":
-        x, y = player.x + 40, player.y + 1
-    else:
-        x, y = player.x + 10, player.y + 49
-    return x, y
-
-
 class Loot():
     loots = []
 
@@ -385,7 +445,7 @@ class Loot():
         self.x = x
         self.y = y
         self.size = size
-        self.type_weapon = choice((Pistol, Shotgun,
+        self.type_weapon = choice((Rifle, Shotgun,
                              RocketLauncher))
         if self.type_weapon == Shotgun:
             self.color = (0, 255, 0)
@@ -400,21 +460,85 @@ class Loot():
                          (self.x, self.y,
                           self.size[0], self.size[1]),
                          3)
+        screen.blit(self.type_weapon.icon,
+                    (self.x + 2, self.y + 2))
 
     def check_collision(self, player):
         if self.x + self.size[0] > player.x and self.x < player.x + 50:
             if self.y + self.size[1] > player.y and self.y < player.y + 50:
                 self.loots.remove(self)
-                if self.type_weapon.bullets >= self.type_weapon.max_bullets:
+                max_bullets_in_loot = (self.type_weapon.max_bullets -
+                                       self.type_weapon.bullets) + 1
+                if max_bullets_in_loot <= 1:
                     return None
-                if self.type_weapon.max_bullets == 1:
-                    return None
-                bullets = randrange(1, self.type_weapon.max_bullets)
+                bullets = randrange(1, max_bullets_in_loot)
                 self.type_weapon.bullets += bullets
 
 
+class Button:
+    def __init__(self, x, y, size, color=(255, 255, 255), width=0):
+        self.x = x
+        self.y = y
+        self.size = size
+        self.color = color
+        self.width = width
+        self.pressed = 0
+
+    def check_click(self, event):
+        if self.x < event.pos[0] < self.x + self.size[0]:
+            if self.y < event.pos[1] < self.y + self.size[1]:
+                self.pressed = 20
+                return True
+
+    def draw(self):
+        pygame.draw.rect(screen, (0, 0, 0),
+                         (self.x - 1, self.y - 1,
+                          self.size[0] + 2, self.size[1] + 2),
+                         width=1)
+        if self.pressed:
+            color = (self.color[0] // 3,
+                     self.color[1] // 3,
+                     self.color[2] // 3)
+            self.pressed -= 1
+        else:
+            color = self.color
+        pygame.draw.rect(screen, color,
+                         (self.x, self.y,
+                          self.size[0], self.size[1]),
+                         width=self.width)
+
+
+def start_menu():
+    button_start_game = Button(150, 150, (50, 50))
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if button_start_game.check_click(event):
+                    return None
+
+        screen.fill((0, 0, 0))
+
+        button_start_game.draw()
+
+        pygame.display.update()
+        clock.tick(30)
+
+
+def get_coords_for_bullet(player):
+    if player.direction == "RIGHT":
+        x, y = player.x + 49, player.y + 40
+    elif player.direction == "LEFT":
+        x, y = player.x + 1, player.y + 10
+    elif player.direction == "UP":
+        x, y = player.x + 40, player.y + 1
+    else:
+        x, y = player.x + 10, player.y + 49
+    return x, y
+
+
 size = 400, 300
-color = 0, 50, 50
 pygame.display.set_caption("Lonely Warrior")
 clock = pygame.time.Clock()
 
@@ -422,7 +546,6 @@ player = Player(100, 100)
 kills = 0
 pygame.mixer.music.load("sounds/DOOM.mp3")
 pygame.mixer.music.set_volume(1.0)
-pygame.mixer.music.play(-1)
 
 sounds_of_kill = [pygame.mixer.Sound("sounds/dspodth2.wav"),
                   pygame.mixer.Sound("sounds/dspodth1.wav"),
@@ -435,23 +558,27 @@ background = pygame.image.load("images/background.jpg")
 background_rect = background.get_rect()
 
 screen = pygame.display.set_mode(size)
+pygame.mixer.music.play(-1)
+
+start_menu()
 
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             sys.exit()
+
         elif event.type == pygame.KEYDOWN:
             if player.is_dead:
                 player.is_dead = False
                 Pistol.bullets = 6
                 Shotgun.bullets = 0
+                Rifle.bullets = 5
                 RocketLauncher.bullets = 0
                 Enemy.enemies = []
                 Loot.loots = []
 
     player.get_command(pygame.key.get_pressed())
 
-    screen.fill(color)
     screen.blit(background, background_rect)
 
     for bullet in Bullet.bullets[:]:
@@ -474,15 +601,9 @@ while True:
         loot.draw()
         loot.check_collision(player)
 
-    for i in range(min(6, player.equipped_weapon.bullets)):
-        pygame.draw.rect(screen, (255, 0, 0),
-                         (230 + i * 30, 5, 15, 15))
+    player.equipped_weapon.display_bullets(player.equipped_weapon)
 
     if not Enemy.enemies:
-        if Shotgun.bullets < 3:
-            Shotgun.bullets += 1
-        if RocketLauncher.bullets < 1:
-            RocketLauncher.bullets = 1
         for i in range(randrange(1, 11)):
             enemy = Enemy()
 
@@ -497,11 +618,13 @@ while True:
     else:
         player.draw()
 
+    screen.blit(player.equipped_weapon.icon,
+                (size[0] - 50, 25))
+
     font = pygame.font.SysFont("microsofttalie", 27)
     text = f"Количество убийств: {kills}"
     follow = font.render(text, 1,
-                         (255, 255, 0),
-                         color)
+                         (255, 255, 0))
     screen.blit(follow, (0, 0))
 
     pygame.display.update()
