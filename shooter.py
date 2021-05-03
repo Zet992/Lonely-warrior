@@ -17,6 +17,7 @@ class Player:
         self.is_dead = False
         self.x = min(max(10, x), size[0] - 60)
         self.y = min(max(10, y), size[0] - 60)
+        self.size = (50, 50)
         self.direction = "RIGHT"
         self.equipped_weapon = Pistol
         self.count = 10
@@ -30,21 +31,25 @@ class Player:
         self.count = 0
         if keys[1073741903] or keys[100]:
             self.direction = "RIGHT"
-            if self.x < size[0] - 50:
-                self.x += 10
+            self.x += 10
+            if self.check_collision_with_walls():
+                self.x -= 10
         elif keys[1073741904] or keys[97]:
             self.direction = "LEFT"
-            if self.x > 0:
-                self.x -= 10
+            self.x -= 10
+            if self.check_collision_with_walls():
+                self.x += 10
 
         if keys[1073741905] or keys[115]:
             self.direction = "DOWN"
-            if self.y < size[1] - 50:
-                self.y += 10
+            self.y += 10
+            if self.check_collision_with_walls():
+                self.y -= 10
         elif keys[1073741906] or keys[119]:
             self.direction = "UP"
-            if self.y > 20:
-                self.y -= 10
+            self.y -= 10
+            if self.check_collision_with_walls():
+                self.y += 10
 
         if keys[114]:
             self.equipped_weapon.reload(self.equipped_weapon)
@@ -67,6 +72,11 @@ class Player:
             RocketLauncher.bullets = 999999
         elif keys[pygame.K_m] and keys[pygame.K_f]:
             Rifle.bullets = 99999
+
+    def check_collision_with_walls(self):
+        for wall in Wall.walls:
+            if wall.check_collision(self):
+                return True
 
     def draw(self):
         screen.blit(self.images[self.direction],
@@ -103,19 +113,24 @@ class Bullet:
                           self.size[0], self.size[1]))
 
     def move(self):
-        if self.speed[1] < 0:
-            self.y += self.speed[1]
-        elif self.speed[1] > 0:
-            self.y += self.speed[1]
-        if self.speed[0] < 0:
-            self.x += self.speed[0]
-        elif self.speed[0] > 0:
-            self.x += self.speed[0]
-
-        if self.x < 0 or self.x > size[0] - 3:
-            self.remove()
-        elif self.y < 20 or self.y > size[1] - 3:
-            self.remove()
+        for i in range(abs(self.speed[0])):
+            if self.speed[0] > 0:
+                self.x += 1
+            else:
+                self.x -= 1
+            for wall in Wall.walls:
+                if wall.check_collision(self):
+                    self.remove()
+                    return None
+        for i in range(abs(self.speed[1])):
+            if self.speed[1] > 0:
+                self.y += 1
+            else:
+                self.y -= 1
+            for wall in Wall.walls:
+                if wall.check_collision(self):
+                    self.remove()
+                    return None
 
     def remove(self):
         self.bullets.remove(self)
@@ -357,12 +372,17 @@ class Enemy:
               "UP": image
               }
 
-    def __init__(self):
+    def __init__(self, x=None, y=None):
         self.count = 0
         self.moving = choice((self.movex, self.movey))
         self.enemies.append(self)
+        self.size = (50, 50)
         spawn_point = choice((1, 2))
-        if spawn_point == 1:
+        if x and y:
+            self.x = x
+            self.y = y
+            self.direction = "DOWN"
+        elif spawn_point == 1:
             self.direction = "UP"
             if player.x + 80 < size[0] - 50:
                 self.x = randrange(player.x + 80, size[0] - 50)
@@ -389,33 +409,41 @@ class Enemy:
             self.count += 1
             return None
         self.count = 0
+
         if player.x // 10 > self.x // 10:
             self.direction = "RIGHT"
             self.x += 10
+
         elif player.x // 10 < self.x // 10:
             self.direction = "LEFT"
             self.x -= 10
+
         elif player.y > self.y:
             self.direction = "DOWN"
             self.y += 10
+
         else:
             self.direction = "UP"
-            self.y -= 10
+            self.y -= 10         
 
     def movey(self):
         if self.count < 10:
             self.count += 1
             return None
         self.count = 0
+
         if player.y // 10 > self.y // 10:
             self.direction = "DOWN"
             self.y += 10
+
         elif player.y // 10 < self.y // 10:
             self.direction = "UP"
             self.y -= 10
+
         elif player.x > self.x:
             self.direction = "RIGHT"
             self.x += 10
+
         else:
             self.direction = "LEFT"
             self.x -= 10
@@ -433,8 +461,10 @@ class Enemy:
         choice(sounds_of_kill).play()
 
     def check_collision(self, player):
-        if self.x + 50 > player.x and self.x < player.x + 50:
-            if self.y + 50 > player.y and self.y < player.y + 50:
+        if (self.x + self.size[0] > player.x 
+            and self.x < player.x + player.size[0]):
+            if (self.y + self.size[1] > player.y 
+                and self.y < player.y + player.size[1]):
                 player.dead()
 
 
@@ -487,7 +517,7 @@ class Button:
     def check_click(self, event):
         if self.x < event.pos[0] < self.x + self.size[0]:
             if self.y < event.pos[1] < self.y + self.size[1]:
-                self.pressed = 20
+                self.pressed = 15
                 return True
 
     def draw(self):
@@ -508,33 +538,110 @@ class Button:
                          width=self.width)
 
 
+class Wall:
+    walls = []
+
+    def __init__(self, x1, y1, x2, y2,
+                 color=(0, 0, 255)):
+        self.x1 = min(x1, x2)
+        self.y1 = min(y1, y2)
+        self.x2 = max(x1, x2)
+        self.y2 = max(y1, y2)
+        self.color = color
+        self.walls.append(self)
+
+    def check_collision(self, other):
+        if self.x1 == self.x2:
+            if self.y1 < other.y + other.size[1] and self.y2 > other.y:
+                if self.x1 > other.x and self.x1 < other.x + other.size[0]:
+                    return True
+        elif self.y1 == self.y2:
+            if self.x1 < other.x + other.size[0] and self.x2 > other.x:
+                if self.y1 > other.y and self.y1 < other.y + other.size[1]:
+                    return True
+
+    def draw(self):
+        pygame.draw.line(screen, self.color,
+                         (self.x1, self.y1),
+                         (self.x2, self.y2),
+                         width=3)
+
+
 def start_menu():
-    button_start_game = Button(150, 150, (50, 50))
+    button_start_game = Button(125, 50, (150, 50))
+    button_help = Button(125, 125, (150, 50))
+    game_help = False
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 sys.exit()
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                if button_start_game.check_click(event):
+                if game_help:
+                    game_help = False
+                elif button_start_game.check_click(event):
                     return None
+                elif button_help.check_click(event):
+                    game_help = True
 
-        screen.fill((0, 0, 0))
+        screen.fill((50, 50, 50))
 
         button_start_game.draw()
+        button_help.draw()
+
+        font = pygame.font.SysFont("microsofttalie", 27)
+        text = "Начать игру"
+        follow = font.render(text, 1, (0, 255, 0))
+        screen.blit(follow, (145, 65))
+
+        font = pygame.font.SysFont("microsofttalie", 27)
+        text = "Помощь"
+        follow = font.render(text, 1, (0, 255, 0))
+        screen.blit(follow, (160, 140))
+
+        if game_help:
+            pygame.draw.rect(screen, (70, 70, 70),
+                             (50, 50, 300, 200))
+
+            font = pygame.font.SysFont("microsofttalie", 27)
+            texts = ["WASD - move", "Space - shot",
+                     "1 - take pistol", "2 - take rifle",
+                     "3 - take shotgun", 
+                     "4 - take RocketLauncher"]
+            for k, text in enumerate(texts):
+                follow = font.render(text, 1, (0, 255, 0))
+                screen.blit(follow, (60, 60 + k * 27))
 
         pygame.display.update()
         clock.tick(30)
 
 
+def load_field(name):
+    global player
+    field = open(name + ".txt", "r")
+    data = [line.rstrip("\n").strip() for line in field]
+    field.close()
+
+    if len(data) != 6 or len(data[0]) != 8:
+        print("Incorrect field")
+        return None
+
+    for y, line in enumerate(data):
+        for x, symbol in enumerate(line):
+            if symbol == "E":
+                Enemy(x * 50, y * 50)
+            elif symbol == "P":
+                player = Player(x * 50, y * 50)
+
+
 def get_coords_for_bullet(player):
     if player.direction == "RIGHT":
-        x, y = player.x + 49, player.y + 40
+        x, y = player.x + 45, player.y + 40
     elif player.direction == "LEFT":
-        x, y = player.x + 1, player.y + 10
+        x, y = player.x + 5, player.y + 10
     elif player.direction == "UP":
-        x, y = player.x + 40, player.y + 1
+        x, y = player.x + 40, player.y + 5
     else:
-        x, y = player.x + 10, player.y + 49
+        x, y = player.x + 10, player.y + 45
     return x, y
 
 
@@ -542,8 +649,15 @@ size = 400, 300
 pygame.display.set_caption("Lonely Warrior")
 clock = pygame.time.Clock()
 
-player = Player(100, 100)
+player = Player(200, 150)
 kills = 0
+
+# Границы экрана
+Wall(0, 25, 0, 300)
+Wall(0, 25, 400, 25)
+Wall(0, 300, 400, 300)
+Wall(400, 25, 400, 300)
+
 pygame.mixer.music.load("sounds/DOOM.mp3")
 pygame.mixer.music.set_volume(1.0)
 
@@ -561,6 +675,8 @@ screen = pygame.display.set_mode(size)
 pygame.mixer.music.play(-1)
 
 start_menu()
+
+load_field("fields/field")
 
 while True:
     for event in pygame.event.get():
@@ -601,7 +717,12 @@ while True:
         loot.draw()
         loot.check_collision(player)
 
+    for wall in Wall.walls:
+        wall.draw()
+
     player.equipped_weapon.display_bullets(player.equipped_weapon)
+    screen.blit(player.equipped_weapon.icon,
+                (size[0] - 50, 25))
 
     if not Enemy.enemies:
         for i in range(randrange(1, 11)):
@@ -611,20 +732,14 @@ while True:
         kills = 0
         font = pygame.font.SysFont("microsofttalie", 60)
         text = "Игра окончена"
-        follow = font.render(text, 1,
-                             (255, 255, 0),
-                             color)
+        follow = font.render(text, 1, (255, 255, 0))
         screen.blit(follow, (50, 100))
     else:
         player.draw()
 
-    screen.blit(player.equipped_weapon.icon,
-                (size[0] - 50, 25))
-
     font = pygame.font.SysFont("microsofttalie", 27)
     text = f"Количество убийств: {kills}"
-    follow = font.render(text, 1,
-                         (255, 255, 0))
+    follow = font.render(text, 1, (255, 255, 0))
     screen.blit(follow, (0, 0))
 
     pygame.display.update()
