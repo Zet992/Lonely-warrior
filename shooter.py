@@ -164,13 +164,13 @@ class Rocket(Bullet):
         if self.tick >= 0 and self.tick < 1:
             self.x, self.y, self.size = self.x - 5, self.y - 5, (10, 10)
         elif self.tick >= 1 and self.tick < 2:
-            self.x, self.y, self.size = self.x - 5, self.y - 5, (20, 20)
+            self.x, self.y, self.size = self.x - 10, self.y - 10, (30, 30)
         elif self.tick >= 2 and self.tick < 3:
-            self.x, self.y, self.size = self.x - 5, self.y - 5, (30, 30)
+            self.x, self.y, self.size = self.x - 10, self.y - 10, (50, 50)
         elif self.tick >= 3 and self.tick < 4:
-            self.x, self.y, self.size = self.x - 5, self.y - 5, (40, 40)
+            self.x, self.y, self.size = self.x - 10, self.y - 10, (70, 70)
         elif self.tick >= 4 and self.tick < 5:
-            self.x, self.y, self.size = self.x - 5, self.y - 5, (50, 50)
+            self.x, self.y, self.size = self.x - 10, self.y - 10, (90, 90)
 
         pygame.draw.rect(screen, (255, 0, 0),
                          (self.x, self.y, self.size[0], self.size[1]))
@@ -475,13 +475,15 @@ class Loot():
         self.x = x
         self.y = y
         self.size = size
-        self.type_weapon = choice((Rifle, Shotgun,
-                             RocketLauncher))
-        if self.type_weapon == Shotgun:
+        random_number = randrange(100)
+        if random_number < 25:
+            self.type_weapon = Shotgun
             self.color = (0, 255, 0)
-        elif self.type_weapon == RocketLauncher:
+        elif random_number < 50:
+            self.type_weapon = RocketLauncher
             self.color = (125, 0, 125)
         else:
+            self.type_weapon = Rifle
             self.color = (255, 255, 255)
         self.loots.append(self)
 
@@ -520,16 +522,22 @@ class Button:
                 self.pressed = 15
                 return True
 
+    def check_cursor(self, x, y):
+        if self.x < x < self.x + self.size[0]:
+            if self.y < y < self.y + self.size[1]:
+                return True
+
     def draw(self):
+        x, y = pygame.mouse.get_pos()
         pygame.draw.rect(screen, (0, 0, 0),
                          (self.x - 1, self.y - 1,
                           self.size[0] + 2, self.size[1] + 2),
                          width=1)
         if self.pressed:
-            color = (self.color[0] // 3,
-                     self.color[1] // 3,
-                     self.color[2] // 3)
+            color = list(map(lambda x: x // 3, self.color))
             self.pressed -= 1
+        elif self.check_cursor(x, y):
+            color = list(map(lambda x: x // 1.5, self.color))
         else:
             color = self.color
         pygame.draw.rect(screen, color,
@@ -633,6 +641,53 @@ def load_field(name):
                 player = Player(x * 50, y * 50)
 
 
+def load_text(name):
+    text = open(name + ".txt", "r")
+    data = "".join(text)
+    text.close()
+    return data
+
+
+def format_text(text):
+    text = text.split("\n")
+    formated_text = []
+    for i in text:
+        string = ""
+        i = i.split()
+        for j in i:
+            if len(string) < 25:
+                string += (j + " ")
+            else:
+                formated_text.append(string)
+                string = j + " "
+        formated_text.append(string)
+    return formated_text
+
+
+def text_board(text):
+    if not isinstance(text, str):
+        return None
+    font = pygame.font.SysFont("microsofttalie", 27)
+    text = format_text(text)
+    new_screen = pygame.display.set_mode(size)
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    return None
+
+        new_screen.fill((0, 0, 0))
+
+        for y, i in enumerate(text):
+            follow = font.render(i, 1, (255, 255, 255))
+            new_screen.blit(follow, (10, 10 + y * 30))
+
+        pygame.display.update()
+        clock.tick(30)
+
+
 def get_coords_for_bullet(player):
     if player.direction == "RIGHT":
         x, y = player.x + 45, player.y + 40
@@ -652,7 +707,7 @@ clock = pygame.time.Clock()
 player = Player(200, 150)
 kills = 0
 
-# Границы экрана
+# Screen borders
 Wall(0, 25, 0, 300)
 Wall(0, 25, 400, 25)
 Wall(0, 300, 400, 300)
@@ -673,10 +728,9 @@ background_rect = background.get_rect()
 
 screen = pygame.display.set_mode(size)
 pygame.mixer.music.play(-1)
+texts_page = 0
 
 start_menu()
-
-load_field("fields/field")
 
 while True:
     for event in pygame.event.get():
@@ -725,6 +779,17 @@ while True:
                 (size[0] - 50, 25))
 
     if not Enemy.enemies:
+        if kills == 0:
+            text = load_text("texts/text0")
+        elif kills >= 25 and texts_page == 1:
+            text = load_text("texts/text1")
+        elif kills >= 50 and texts_page == 2:
+            text = load_text("texts/text2")
+        else:
+            texts_page -= 1
+            text = None
+        texts_page += 1
+        text_board(text)
         for i in range(randrange(1, 11)):
             enemy = Enemy()
 
