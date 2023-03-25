@@ -1,6 +1,7 @@
-import pygame
-import sys
 from random import choice, randrange
+import sys
+
+import pygame
 pygame.init()
 
 
@@ -19,7 +20,8 @@ class Player:
         self.y = min(max(10, y), size[0] - 60)
         self.size = (50, 50)
         self.direction = "RIGHT"
-        self.equipped_weapon = Pistol
+        self.weapons = [Pistol(), Rifle(), Shotgun(), RocketLauncher()]
+        self.equipped_weapon = self.weapons[0]
         self.count = 10
 
     def get_command(self, keys):
@@ -29,49 +31,49 @@ class Player:
             self.count += 1
             return None
         self.count = 0
-        if keys[1073741903] or keys[100]:
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.direction = "RIGHT"
             self.x += 10
             if self.check_collision_with_walls():
                 self.x -= 10
-        elif keys[1073741904] or keys[97]:
+        elif keys[pygame.K_LEFT] or keys[pygame.K_a]:
             self.direction = "LEFT"
             self.x -= 10
             if self.check_collision_with_walls():
                 self.x += 10
 
-        if keys[1073741905] or keys[115]:
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
             self.direction = "DOWN"
             self.y += 10
             if self.check_collision_with_walls():
                 self.y -= 10
-        elif keys[1073741906] or keys[119]:
+        elif keys[pygame.K_UP] or keys[pygame.K_w]:
             self.direction = "UP"
             self.y -= 10
             if self.check_collision_with_walls():
                 self.y += 10
 
-        if keys[114]:
-            self.equipped_weapon.reload(self.equipped_weapon)
-        elif keys[32]:
-            self.equipped_weapon.shot(self.equipped_weapon,  self)
+        if keys[pygame.K_r]:
+            self.equipped_weapon.reload()
+        elif keys[pygame.K_SPACE]:
+            self.equipped_weapon.shot(self)
         elif keys[pygame.K_1]:
-            self.equipped_weapon = Pistol
+            self.equipped_weapon = self.weapons[0]
         elif keys[pygame.K_2]:
-            self.equipped_weapon = Rifle
+            self.equipped_weapon = self.weapons[1]
         elif keys[pygame.K_3]:
-            self.equipped_weapon = Shotgun
+            self.equipped_weapon = self.weapons[2]
         elif keys[pygame.K_4]:
-            self.equipped_weapon = RocketLauncher
+            self.equipped_weapon = self.weapons[3]
 
         if keys[pygame.K_m] and keys[pygame.K_p]:
-            Pistol.bullets = 999999
+            self.weapons[0].bullets = 999999
         elif keys[pygame.K_m] and keys[pygame.K_s]:
-            Shotgun.bullets = 999999
+            self.weapons[2].bullets = 999999
         elif keys[pygame.K_m] and keys[pygame.K_r]:
-            RocketLauncher.bullets = 999999
+            self.weapons[3].bullets = 999999
         elif keys[pygame.K_m] and keys[pygame.K_f]:
-            Rifle.bullets = 99999
+            self.weapons[1].bullets = 99999
 
     def check_collision_with_walls(self):
         for wall in Wall.walls:
@@ -139,58 +141,72 @@ class Bullet:
 class Rocket(Bullet):
     sound_of_boom = pygame.mixer.Sound("sounds/boom.wav")
 
-    def __init__(self, x, y, size, color):
-        super().__init__(x, y, size, color)
-        self.tick = -1
-        self.flag = False
-
-    def remove(self):
-        if not self.flag:
+    def check_kill(self, enemy):
+        if super().check_kill(enemy):
             self.boom()
+            return True
+        return False
 
     def boom(self):
-        self.flag = True
+        explosion = Explosion(self.x + self.size[0] // 2,
+                              self.y + self.size[1] // 2,
+                              10, 3, 3, 6)
+        explosions.append(explosion)
         self.sound_of_boom.play()
-        self.tick = 0
+
+
+class Explosion:
+    def __init__(self, x, y, radius, first_step, acceleration, ticks):
+        self.x = x
+        self.y = y
+        self.radius = radius
+        self.first_step = first_step
+        self.current_step = first_step
+        self.acceleration = acceleration
+        self.ticks = ticks
+
+    def check_kill(self, enemy):
+        distance_x = abs(self.x - enemy.x)
+        distance_y = abs(self.y - enemy.y)
+
+        if distance_x > (enemy.size[0]/2 + self.radius):
+            return False
+        if distance_y > (enemy.size[1]/2 + self.radius):
+            return False
+
+        if distance_x <= enemy.size[0]/2:
+            return True
+        if distance_y <= enemy.size[1]/2:
+            return True
+
+        corner_distance_sq = ((distance_x - enemy.size[0]/2) ** 2 +
+                             (distance_y - enemy.size[1]/2) ** 2)
+
+        return corner_distance_sq <= self.radius ** 2
+
+    def update(self):
+        self.radius += self.current_step
+        self.current_step += self.acceleration
+        self.ticks -= 1
 
     def draw(self):
-        if not self.flag:
-            super().draw()
-            return False
-        if self.tick == 5:
-            super().remove()
-            return None
-
-        if self.tick >= 0 and self.tick < 1:
-            self.x, self.y, self.size = self.x - 5, self.y - 5, (10, 10)
-        elif self.tick >= 1 and self.tick < 2:
-            self.x, self.y, self.size = self.x - 10, self.y - 10, (30, 30)
-        elif self.tick >= 2 and self.tick < 3:
-            self.x, self.y, self.size = self.x - 10, self.y - 10, (50, 50)
-        elif self.tick >= 3 and self.tick < 4:
-            self.x, self.y, self.size = self.x - 10, self.y - 10, (70, 70)
-        elif self.tick >= 4 and self.tick < 5:
-            self.x, self.y, self.size = self.x - 10, self.y - 10, (90, 90)
-
-        pygame.draw.rect(screen, (255, 0, 0),
-                         (self.x, self.y, self.size[0], self.size[1]))
-
-        self.tick += 1
-
-    def move(self):
-        if self.flag:
-            return False
-        else:
-            super().move()
+        pygame.draw.circle(screen, (180, 180, 180),
+                           (self.x, self.y), self.radius)
+        pygame.draw.circle(screen, (255, 155, 55),
+                           (self.x, self.y), self.radius - 5)
+        pygame.draw.circle(screen, (255, 0, 0),
+                           (self.x, self.y), self.radius - 30)
 
 
 class Pistol:
-    bullets = 6
-    max_bullets = 6
     icon = pygame.image.load("images/pistol.gif")
     sound_of_shot = pygame.mixer.Sound("sounds/dspistol.wav")
     sound_of_reload = pygame.mixer.Sound("sounds/dsdbload.wav")
     time = pygame.time.get_ticks()
+
+    def __init__(self):
+        self.bullets = 6
+        self.max_bullets = 6
 
     def shot(self, player):
         if self.bullets == 0:
@@ -235,8 +251,10 @@ class Rifle:
     sound_of_shot = pygame.mixer.Sound("sounds/dspistol.wav")
     sound_of_reload = pygame.mixer.Sound("sounds/dsdbload.wav")
     icon = pygame.image.load("images/pistol.gif")
-    max_bullets = 30
-    bullets = 5
+
+    def __init__(self):
+        self.bullets = 5
+        self.max_bullets = 30
 
     def shot(self, player):
         if self.bullets == 0:
@@ -273,9 +291,11 @@ class Shotgun:
     sound_of_shot = pygame.mixer.Sound("sounds/shotgun_shot.wav")
     sound_of_reload = pygame.mixer.Sound("sounds/shotgun_reload.wav")
     icon = pygame.image.load("images/shotgun.gif")
-    bullets = 0
-    max_bullets = 3
-    time = pygame.time.get_ticks()
+
+    def __init__(self):
+        self.bullets = 0
+        self.max_bullets = 3
+        self.time = pygame.time.get_ticks()
 
     def shot(self, player):
         if self.bullets == 0:
@@ -314,13 +334,14 @@ class Shotgun:
                              (230 + i * 30, 5, 20, 20))
 
 
-
 class RocketLauncher:
     sound_of_shot = pygame.mixer.Sound("sounds/rocket_shot.wav")
     icon = pygame.image.load("images/RocketLauncher.gif")
-    bullets = 0
-    max_bullets = 1
-    time = pygame.time.get_ticks()
+
+    def __init__(self):
+        self.bullets = 0
+        self.max_bullets = 1
+        self.time = pygame.time.get_ticks()
 
     def shot(self, player):
         if self.bullets == 0:
@@ -461,14 +482,12 @@ class Enemy:
         choice(sounds_of_kill).play()
 
     def check_collision(self, player):
-        if (self.x + self.size[0] > player.x 
-            and self.x < player.x + player.size[0]):
-            if (self.y + self.size[1] > player.y 
-                and self.y < player.y + player.size[1]):
+        if (self.x + self.size[0] > player.x and self.x < player.x + player.size[0]):
+            if (self.y + self.size[1] > player.y and self.y < player.y + player.size[1]):
                 player.dead()
 
 
-class Loot():
+class Loot:
     loots = []
 
     def __init__(self, x, y, size):
@@ -477,13 +496,13 @@ class Loot():
         self.size = size
         random_number = randrange(100)
         if random_number < 25:
-            self.type_weapon = Shotgun
+            self.type_weapon = 2
             self.color = (0, 255, 0)
         elif random_number < 50:
-            self.type_weapon = RocketLauncher
+            self.type_weapon = 3
             self.color = (125, 0, 125)
         else:
-            self.type_weapon = Rifle
+            self.type_weapon = 1
             self.color = (255, 255, 255)
         self.loots.append(self)
 
@@ -492,19 +511,19 @@ class Loot():
                          (self.x, self.y,
                           self.size[0], self.size[1]),
                          3)
-        screen.blit(self.type_weapon.icon,
+        screen.blit(player.weapons[self.type_weapon].icon,
                     (self.x + 2, self.y + 2))
 
     def check_collision(self, player):
         if self.x + self.size[0] > player.x and self.x < player.x + 50:
             if self.y + self.size[1] > player.y and self.y < player.y + 50:
                 self.loots.remove(self)
-                max_bullets_in_loot = (self.type_weapon.max_bullets -
-                                       self.type_weapon.bullets) + 1
+                max_bullets_in_loot = (player.weapons[self.type_weapon].max_bullets -
+                                       player.weapons[self.type_weapon].bullets) + 1
                 if max_bullets_in_loot <= 1:
                     return None
                 bullets = randrange(1, max_bullets_in_loot)
-                self.type_weapon.bullets += bullets
+                player.weapons[self.type_weapon].bullets += bullets
 
 
 class Button:
@@ -561,11 +580,11 @@ class Wall:
     def check_collision(self, other):
         if self.x1 == self.x2:
             if self.y1 < other.y + other.size[1] and self.y2 > other.y:
-                if self.x1 > other.x and self.x1 < other.x + other.size[0]:
+                if other.x < self.x1 < other.x + other.size[0]:
                     return True
         elif self.y1 == self.y2:
             if self.x1 < other.x + other.size[0] and self.x2 > other.x:
-                if self.y1 > other.y and self.y1 < other.y + other.size[1]:
+                if other.y < self.y1 < other.y + other.size[1]:
                     return True
 
     def draw(self):
@@ -598,12 +617,12 @@ def start_menu():
 
         font = pygame.font.SysFont("microsofttalie", 27)
         text = "Начать игру"
-        follow = font.render(text, 1, (0, 255, 0))
+        follow = font.render(text, True, (0, 155, 0))
         screen.blit(follow, (145, 65))
 
         font = pygame.font.SysFont("microsofttalie", 27)
         text = "Помощь"
-        follow = font.render(text, 1, (0, 255, 0))
+        follow = font.render(text, True, (0, 155, 0))
         screen.blit(follow, (160, 140))
 
         if game_help:
@@ -616,7 +635,7 @@ def start_menu():
                      "3 - take shotgun", 
                      "4 - take RocketLauncher"]
             for k, text in enumerate(texts):
-                follow = font.render(text, 1, (0, 255, 0))
+                follow = font.render(text, True, (0, 255, 0))
                 screen.blit(follow, (60, 60 + k * 27))
 
         pygame.display.update()
@@ -681,7 +700,7 @@ def text_board(text):
         new_screen.fill((0, 0, 0))
 
         for y, i in enumerate(text):
-            follow = font.render(i, 1, (255, 255, 255))
+            follow = font.render(i, True, (255, 255, 255))
             new_screen.blit(follow, (10, 10 + y * 30))
 
         pygame.display.update()
@@ -730,6 +749,8 @@ screen = pygame.display.set_mode(size)
 pygame.mixer.music.play(-1)
 texts_page = 0
 
+explosions = []
+
 start_menu()
 
 while True:
@@ -751,6 +772,11 @@ while True:
 
     screen.blit(background, background_rect)
 
+    for enemy in Enemy.enemies:
+        enemy.move()
+        enemy.draw()
+        enemy.check_collision(player)
+
     for bullet in Bullet.bullets[:]:
         bullet.move()
         bullet.draw()
@@ -758,14 +784,22 @@ while True:
             if bullet.check_kill(enemy):
                 bullet.kill(enemy)
                 kills += 1
-                if kills != 0 and kills % 25 == 0:
+                if kills % 25 == 0:
                     sound_of_streak.play()
                 break
 
-    for enemy in Enemy.enemies:
-        enemy.move()
-        enemy.draw()
-        enemy.check_collision(player)
+    for explosion in explosions:
+        if explosion.ticks <= 0:
+            explosions.remove(explosion)
+            continue
+        explosion.update()
+        explosion.draw()
+        for enemy in Enemy.enemies[:]:
+            if explosion.check_kill(enemy):
+                enemy.dead()
+                kills += 1
+                if kills % 25 == 0:
+                    sound_of_streak.play()
 
     for loot in Loot.loots:
         loot.draw()
@@ -774,7 +808,7 @@ while True:
     for wall in Wall.walls:
         wall.draw()
 
-    player.equipped_weapon.display_bullets(player.equipped_weapon)
+    player.equipped_weapon.display_bullets()
     screen.blit(player.equipped_weapon.icon,
                 (size[0] - 50, 25))
 
@@ -797,14 +831,14 @@ while True:
         kills = 0
         font = pygame.font.SysFont("microsofttalie", 60)
         text = "Игра окончена"
-        follow = font.render(text, 1, (255, 255, 0))
+        follow = font.render(text, True, (255, 255, 0))
         screen.blit(follow, (50, 100))
     else:
         player.draw()
 
     font = pygame.font.SysFont("microsofttalie", 27)
     text = f"Количество убийств: {kills}"
-    follow = font.render(text, 1, (255, 255, 0))
+    follow = font.render(text, True, (255, 255, 0))
     screen.blit(follow, (0, 0))
 
     pygame.display.update()
